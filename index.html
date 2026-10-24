@@ -112,19 +112,16 @@
   tr.hidden{display:none}
   .num{color:var(--text); font-weight:600}
   .cheap{color:var(--down); font-weight:700}
-  /* ── 渠道价差 ── */
-  .diffgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-bottom:24px}
-  .dcard{
-    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 24px;
-    box-shadow:0 1px 3px rgba(16,24,40,.06);
-  }
-  .dcard h3{font-size:16px; margin-bottom:6px}
-  .dcard .pct{font-size:28px; font-weight:800; font-variant-numeric:tabular-nums; margin-bottom:4px}
-  .dcard .desc{font-size:13px; color:var(--muted)}
-  .t-official .pct{color:var(--primary)} .t-agg .pct{color:var(--down)} .t-resale .pct{color:var(--up)}
-  .tips{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 24px; margin-top:16px}
-  .tips li{font-size:13px; color:var(--muted); margin:8px 0 8px 20px}
-  .tips b{color:var(--text)}
+  /* ── 比官方更便宜的渠道 ── */
+  .diff-intro,.diff-note{font-size:13px; color:var(--muted); line-height:1.7}
+  .diff-intro{margin:-4px 0 16px}
+  .diff-note{margin-top:12px}
+  .diff-table{min-width:940px}
+  .diff-table a{color:var(--primary); text-decoration:none; font-weight:600}
+  .diff-table a:hover{text-decoration:underline}
+  .diff-table .price-pair{white-space:nowrap; font-weight:600}
+  .diff-table .saving{color:var(--down); font-weight:700; white-space:nowrap}
+  .diff-table .subnote{display:block; margin-top:3px; font-size:12px; color:var(--muted)}
   /* ── 页脚 ── */
   footer{max-width:1280px; margin:0 auto; padding:24px 16px 40px; color:var(--muted); font-size:12px; border-top:1px solid var(--line)}
   @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
@@ -174,119 +171,61 @@
       </table>
     </div>
   </section>
-  <section>
-    <h2>渠道价差 · 同一个模型，换个平台差多少</h2>
-    <div class="diffgrid">
-      <div class="dcard t-official">
-        <h3>① 官方直连</h3>
-        <div class="pct">基准价</div>
-        <div class="desc">厂商自己的 API。价格是基准，稳定性最高，但国产模型要实名、海外模型要境外卡。适合量大、要稳定的场景。</div>
-      </div>
-      <div class="dcard t-agg">
-        <h3>② 国际聚合平台</h3>
-        <div class="pct">-25% ~ -75%</div>
-        <div class="desc">OpenRouter / DeepInfra / Together 这类，同一份开源权重多家托管互相压价，最低能到官方闲时价的四分之一。越新的开源模型降得越狠。</div>
-      </div>
-      <div class="dcard t-resale">
-        <h3>③ 代理 / 云厂商托管</h3>
-        <div class="pct">+50% ~ +300%</div>
-        <div class="desc">加价转售，代价换的是人民币支付、发票、国内网络。混元走代理商加 50%~100%，DeepSeek V4-Pro 在火山方舟托管比官方贵 3 倍。</div>
-      </div>
-    </div>
-
+  <section id="cheaper-than-official">
+    <h2>哪些主流模型在中转渠道比官方便宜？</h2>
+    <p class="diff-intro">只列同一模型版本、输入和输出单价都低于官方 API 的实例。价格单位：美元 / 百万 Token；核对日期：2026-10-25。</p>
     <div class="tablewrap">
-      <table>
+      <table class="diff-table">
         <thead>
           <tr>
-            <th scope="col">模型</th><th scope="col">平台 A（便宜）</th><th scope="col">平台 B（贵）</th>
-            <th scope="col">输出价差</th><th scope="col">说明</th>
+            <th scope="col">模型</th><th scope="col">官方 API<br>输入 / 输出</th><th scope="col">更便宜的渠道</th>
+            <th scope="col">渠道价<br>输入 / 输出</th><th scope="col">相对官方便宜</th><th scope="col">价格来源</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="m">Qwen3-235B-A22B</td>
-            <td>DeepInfra <b>$0.10</b></td><td>巴别塔 <b>¥40</b> ≈ $5.5</td>
-            <td><span class="badge b-up">相差 55 倍</span></td>
-            <td>同一个开源模型，托管渠道之间的极端价差案例</td>
-          </tr>
-          <tr>
-            <td class="m">DeepSeek V3.1</td>
-            <td>OpenRouter <b>$0.80</b></td><td>Replicate <b>$2.02</b></td>
-            <td><span class="badge b-up">相差 2.5 倍</span></td>
-            <td>中间还有 DeepInfra $1.00、302.AI $1.68</td>
-          </tr>
-          <tr>
-            <td class="m">DeepSeek V4-Flash</td>
-            <td>Open Inference <b>$0.16</b></td><td>官方闲时 <b>$0.60</b></td>
-            <td><span class="badge b-down">便宜 73%</span></td>
-            <td>第三方托管最低价只有官方低谷价的约四分之一</td>
-          </tr>
-          <tr>
-            <td class="m">Grok 4</td>
-            <td>OpenRouter <b>$15</b></td><td>Replicate <b>$36</b></td>
-            <td><span class="badge b-up">相差 2.4 倍</span></td>
-            <td>闭源模型被代理时价格由平台自己定</td>
+            <td class="m">GLM-5.3</td>
+            <td class="price-pair">$1.40 / $4.40</td>
+            <td>SiliconFlow<span class="subnote">经 OpenRouter 指定渠道</span></td>
+            <td class="price-pair">$0.70 / $2.20</td>
+            <td class="saving">输入 −50% · 输出 −50%</td>
+            <td><a href="https://docs.z.ai/guides/overview/pricing" target="_blank" rel="noopener noreferrer">官方</a> · <a href="https://openrouter.ai/z-ai/glm-5.3" target="_blank" rel="noopener noreferrer">渠道</a></td>
           </tr>
           <tr>
             <td class="m">GLM-5.3-Flash</td>
-            <td>GMICloud / NovitaAI / DeepInfra</td><td>智谱官方</td>
-            <td><span class="badge b-down">便宜约 50%</span></td>
-            <td>开源权重被多家托管后普遍打折</td>
+            <td class="price-pair">$0.15 / $0.50</td>
+            <td>GMICloud<span class="subnote">经 OpenRouter 指定渠道</span></td>
+            <td class="price-pair">$0.075 / $0.25</td>
+            <td class="saving">输入 −50% · 输出 −50%</td>
+            <td><a href="https://docs.z.ai/guides/overview/pricing" target="_blank" rel="noopener noreferrer">官方</a> · <a href="https://openrouter.ai/z-ai/glm-5.3-flash" target="_blank" rel="noopener noreferrer">渠道</a></td>
           </tr>
           <tr>
-            <td class="m">混元 HY4 preview</td>
-            <td>TokenHub 直供 <b>¥5.8</b></td><td>代理商渠道</td>
-            <td><span class="badge b-up">加价 50%~100%</span></td>
-            <td>腾讯系模型代理加价幅度写在渠道条款里</td>
+            <td class="m">DeepSeek V4.1 Flash 1017</td>
+            <td class="price-pair">$0.15 / $0.60<span class="subnote">官方闲时、非缓存价</span></td>
+            <td>DeepInfra<span class="subnote">经 OpenRouter 指定渠道 · 促销价</span></td>
+            <td class="price-pair">$0.098 / $0.294</td>
+            <td class="saving">输入约 −35% · 输出 −51%</td>
+            <td><a href="https://api-docs.deepseek.com/quick_start/pricing/" target="_blank" rel="noopener noreferrer">官方</a> · <a href="https://openrouter.ai/deepseek/deepseek-v4.1-flash-1017" target="_blank" rel="noopener noreferrer">渠道</a></td>
           </tr>
           <tr>
-            <td class="m">智谱 GLM Coding Plan</td>
-            <td>国内 <b>¥469</b> ≈ $67</td><td>海外 <b>$160</b></td>
-            <td><span class="badge b-down">国内便宜一半</span></td>
-            <td>反向价差：海外用户找人代购国内套餐</td>
+            <td class="m">MiniMax M3</td>
+            <td class="price-pair">$0.30 / $1.20<span class="subnote">官方标准档、≤512k 输入</span></td>
+            <td>CoreWeave<span class="subnote">经 OpenRouter 指定渠道</span></td>
+            <td class="price-pair">$0.23 / $0.96</td>
+            <td class="saving">输入约 −23% · 输出 −20%</td>
+            <td><a href="https://platform.minimax.io/docs/pricing/overview" target="_blank" rel="noopener noreferrer">官方</a> · <a href="https://openrouter.ai/minimax/minimax-m3" target="_blank" rel="noopener noreferrer">渠道</a></td>
           </tr>
         </tbody>
       </table>
     </div>
-
-    <div class="tablewrap" style="margin-top:16px">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">主流中转站</th><th scope="col">类型</th><th scope="col">计价</th>
-            <th scope="col">支付</th><th scope="col">发票</th><th scope="col">特点</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td class="m">OpenRouter</td><td>国际聚合</td><td>USD</td><td>信用卡 / 加密货币</td><td>否</td><td>覆盖最广（400+ 模型），定价与官方持平，靠充值手续费（约 5%）盈利，有智能路由与自动故障转移</td></tr>
-          <tr><td class="m">DeepInfra</td><td>开源推理</td><td>USD</td><td>信用卡</td><td>否</td><td>开源模型常出现全场最低价，稳定性尚可</td></tr>
-          <tr><td class="m">Together / Fireworks</td><td>开源推理</td><td>USD</td><td>信用卡</td><td>否</td><td>Fireworks 独家代理部分量化版（如 Mistral Large 3 FP8）</td></tr>
-          <tr><td class="m">Groq</td><td>LPU 专用推理</td><td>USD</td><td>信用卡</td><td>否</td><td>速度约 500 TPS，独家渠道没有比价对象</td></tr>
-          <tr><td class="m">Replicate</td><td>开源托管</td><td>USD</td><td>信用卡</td><td>否</td><td>老牌，但部分模型报价明显偏高</td></tr>
-          <tr><td class="m">硅基流动（国内）</td><td>国内聚合</td><td>CNY</td><td>微信 / 支付宝</td><td>可开</td><td>30+ 模型，覆盖 DeepSeek/Qwen/GLM/Kimi/MiniMax，企业合规路线</td></tr>
-          <tr><td class="m">302.AI</td><td>国际聚合</td><td>USD</td><td>信用卡 / 加密货币</td><td>否</td><td>国产闭源模型的第二大代理渠道（豆包、Kimi、GLM 等）</td></tr>
-          <tr><td class="m">巴别塔</td><td>国内聚合</td><td>CNY</td><td>微信 / 支付宝</td><td>否</td><td>专攻国产小模型（Qwen3-8B ¥5 等），轻量推理场景</td></tr>
-          <tr><td class="m">火山方舟 / 云厂商托管</td><td>云厂商托管</td><td>CNY</td><td>对公 / 转账</td><td>可开</td><td>合规与发票齐全，但同一模型加价最狠（最高 +300%）</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="tips">
-      <b>选渠道时的四条避坑经验：</b>
-      <ol>
-        <li><b>低于官方成本价 70% 的要警惕</b>——行业最大客户折扣通常不低于五折，长期三折出售的多半有猫腻（降级模型、注水 Token、盗刷额度）。</li>
-        <li><b>闭源模型在代理渠道更贵</b>：Grok 4 在两家平台差 2.4 倍；<b>开源模型在聚合平台更便宜</b>：DeepSeek/GLM/Qwen 被多家托管压价，最狠便宜 75%。</li>
-        <li><b>数据多过一层手</b>：中转站能看到你全部请求内容。合同、客户信息、内部代码这类敏感内容慎走第三方。</li>
-        <li><b>提前备好第二条路</b>：部分模型「仅此一家代理」（如 Groq 的 Qwen3.6-27B），这家断了就没有备选；另有一些模型官方不开放代理（Hunyuan TurboS/T1、豆包 Seed 2.0），只能走官方 API。</li>
-      </ol>
-    </div>
+    <p class="diff-note">这里比的是公开标价，不是实付账单。OpenRouter 标准账户另收 5.5% 平台费；指定渠道、促销、缓存、长上下文和可用性都会影响实际成本。下单前请点开每行链接复核，不要把表中的折扣当作长期保价。</p>
   </section>
 </main>
 
 <footer>
-  数据来源：各厂商官方定价页、OpenRouter 模型列表，以及《大模型中转站 &amp; 聚合代理平台模型价格对比报告》等公开第三方比价资料，由 AI 定期核验整理 ·
+  数据来源：各厂商官方定价页与 OpenRouter 模型渠道报价 ·
   价格随时可能变动，下单前以厂商官网与渠道当期报价为准 · 涨跌标注以上一期价格为基准 ·
-  DeepSeek/xAI 等标注为闲时/短上下文标准价 · 渠道价差为公开报告样本，不代表该平台全部模型
+  DeepSeek/xAI 等标注为闲时/短上下文标准价 · 渠道比价为 2026-10-25 公开报价快照，不代表该渠道全部模型
 </footer>
 
 <script>
