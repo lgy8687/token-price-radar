@@ -102,8 +102,8 @@
   .tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:16px; background:var(--card); box-shadow:0 1px 3px rgba(16,24,40,.06)}
   table{width:100%; border-collapse:collapse; min-width:860px; font-size:14px}
   th,td{padding:11px 14px; text-align:left; border-bottom:1px solid var(--line)}
-  th{color:var(--muted); font-weight:600; font-size:12px; letter-spacing:1px; background:#f8fafd;
-     position:sticky; top:52px}
+  th{color:var(--muted); font-weight:600; font-size:12px; letter-spacing:1px; background:#f8fafd}
+  #price-table th{position:sticky; top:52px}
   td{font-variant-numeric:tabular-nums}
   td .m{font-weight:600}
   tr:last-child td{border-bottom:none}
@@ -162,7 +162,7 @@
   <section>
     <h2>全部模型价格表（主流平台收录）</h2>
     <div class="tablewrap">
-      <table>
+      <table id="price-table">
         <thead>
           <tr>
             <th scope="col">服务商</th><th scope="col">模型</th>
@@ -174,8 +174,6 @@
       </table>
     </div>
   </section>
-</main>
-
   <section>
     <h2>渠道价差 · 同一个模型，换个平台差多少</h2>
     <div class="diffgrid">
@@ -283,6 +281,7 @@
       </ol>
     </div>
   </section>
+</main>
 
 <footer>
   数据来源：各厂商官方定价页、OpenRouter 模型列表，以及《大模型中转站 &amp; 聚合代理平台模型价格对比报告》等公开第三方比价资料，由 AI 定期核验整理 ·
