@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token 价格雷达 · 大模型 API 价格看板</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --line:#e5eaf2;
+    --primary:#2563eb; --primary-soft:#eff4ff;
+    --up:#e11d48; --up-bg:#fff1f3;
+    --down:#059669; --down-bg:#ecfdf5;
+    --new:#7c3aed; --new-bg:#f5f0ff;
+    --flat:#6b7690; --flat-bg:#f1f4f9;
+    --text:#1a2233; --muted:#6b7690;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  /* ── Hero ── */
+  .hero{
+    max-width:1280px; margin:0 auto; padding:48px 16px 28px; text-align:center;
+    background:linear-gradient(180deg,#eef3ff 0%,var(--bg) 100%);
+  }
+  .hero h1{
+    font-size:clamp(30px,5vw,44px); font-weight:800; letter-spacing:1px; color:var(--text);
+  }
+  .hero h1 em{
+    font-style:normal;
+    background:linear-gradient(90deg,#2563eb,#7c3aed);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .hero p{color:var(--muted); font-size:14px; margin-top:8px}
+  .stats{display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:24px}
+  .stat{
+    background:var(--card); border:1px solid var(--line); border-radius:999px;
+    padding:8px 20px; font-size:13px; color:var(--muted);
+    box-shadow:0 1px 3px rgba(16,24,40,.06);
+  }
+  .stat b{font-size:16px; margin-left:4px; font-variant-numeric:tabular-nums}
+  .stat.t-down b{color:var(--down)} .stat.t-up b{color:var(--up)} .stat.t-new b{color:var(--new)}
+  /* ── 筛选/搜索栏 ── */
+  .filterbar{
+    position:sticky; top:0; z-index:9;
+    background:rgba(255,255,255,.9); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line); padding:10px 16px;
+    display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap;
+  }
+  .chip{
+    cursor:pointer; font-size:13px; padding:6px 16px;
+    border-radius:999px; border:1px solid var(--line); background:#fff;
+    color:var(--muted); transition:transform .15s, border-color .2s, color .2s, background .2s;
+  }
+  .chip:hover{border-color:var(--primary); color:var(--primary)}
+  .chip:active{transform:scale(.95)}
+  .chip.on{border-color:var(--primary); color:var(--primary); background:var(--primary-soft); font-weight:600}
+  .chip:focus-visible{outline:2px solid var(--primary); outline-offset:2px}
+  .search{
+    font-size:13px; padding:7px 16px; border-radius:999px;
+    border:1px solid var(--line); background:#fff; color:var(--text);
+    width:180px; transition:border-color .2s, width .25s;
+  }
+  .search:focus{outline:none; border-color:var(--primary); width:240px}
+  /* ── 卡片 ── */
+  main{max-width:1280px; margin:0 auto; padding:24px 16px 48px}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:24px; display:flex; flex-direction:column; gap:4px;
+    box-shadow:0 1px 3px rgba(16,24,40,.06);
+    transition:transform .25s ease, box-shadow .25s, opacity .2s;
+    animation:enter .3s ease backwards;
+  }
+  .card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 10px 28px rgba(37,99,235,.12);
+  }
+  .card.is-new{border:1.5px solid #c9b8f7; background:linear-gradient(180deg,#faf8ff,#fff)}
+  .card.hidden{display:none}
+  @keyframes enter{from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:none}}
+  .card-top{display:flex; justify-content:space-between; align-items:center}
+  .provider{font-size:12px; color:var(--muted); letter-spacing:1px; font-weight:600}
+  .model{font-size:18px; font-weight:700; margin-top:2px}
+  .badge{font-size:12px; padding:3px 12px; border-radius:999px; white-space:nowrap; font-weight:600}
+  .b-down{background:var(--down-bg); color:var(--down)}
+  .b-up{background:var(--up-bg); color:var(--up)}
+  .b-new{background:var(--new-bg); color:var(--new)}
+  .b-flat{background:var(--flat-bg); color:var(--flat)}
+  .prices{display:flex; gap:24px; margin:14px 0 4px}
+  .price b{display:block; font-size:26px; font-weight:700; font-variant-numeric:tabular-nums}
+  .price span{font-size:12px; color:var(--muted)}
+  .cache{font-size:13px; color:var(--muted)}
+  .note{margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); font-size:13px; color:var(--muted)}
+  /* ── 区块与表格 ── */
+  section{margin-top:48px}
+  h2{font-size:24px; margin-bottom:16px}
+  h2::before{content:""; display:inline-block; width:6px; height:20px; margin-right:10px;
+    border-radius:3px; background:linear-gradient(180deg,#2563eb,#7c3aed); vertical-align:-3px}
+  .tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:16px; background:var(--card); box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  table{width:100%; border-collapse:collapse; min-width:860px; font-size:14px}
+  th,td{padding:11px 14px; text-align:left; border-bottom:1px solid var(--line)}
+  th{color:var(--muted); font-weight:600; font-size:12px; letter-spacing:1px; background:#f8fafd;
+     position:sticky; top:52px}
+  td{font-variant-numeric:tabular-nums}
+  td .m{font-weight:600}
+  tr:last-child td{border-bottom:none}
+  tbody tr{transition:background .15s}
+  tbody tr:hover{background:var(--primary-soft)}
+  tr.hidden{display:none}
+  .num{color:var(--text); font-weight:600}
+  .cheap{color:var(--down); font-weight:700}
+  /* ── 渠道价差 ── */
+  .diffgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-bottom:24px}
+  .dcard{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 24px;
+    box-shadow:0 1px 3px rgba(16,24,40,.06);
+  }
+  .dcard h3{font-size:16px; margin-bottom:6px}
+  .dcard .pct{font-size:28px; font-weight:800; font-variant-numeric:tabular-nums; margin-bottom:4px}
+  .dcard .desc{font-size:13px; color:var(--muted)}
+  .t-official .pct{color:var(--primary)} .t-agg .pct{color:var(--down)} .t-resale .pct{color:var(--up)}
+  .tips{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 24px; margin-top:16px}
+  .tips li{font-size:13px; color:var(--muted); margin:8px 0 8px 20px}
+  .tips b{color:var(--text)}
+  /* ── 页脚 ── */
+  footer{max-width:1280px; margin:0 auto; padding:24px 16px 40px; color:var(--muted); font-size:12px; border-top:1px solid var(--line)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>TOKEN <em>价格雷达</em></h1>
+  <p>全球主流大模型 API 价格全览 · AI 每 3 天 / 每周更新一次</p>
+  <div class="stats">
+    <div class="stat">数据更新于<b id="updatedAt">—</b></div>
+    <div class="stat t-down">本周降价<b id="cntDown">0</b> 个</div>
+    <div class="stat t-up">涨价 / 待涨<b id="cntUp">0</b> 个</div>
+    <div class="stat t-new">新上架<b id="cntNew">0</b> 个</div>
+    <div class="stat">收录模型<b id="cntAll">0</b> 个</div>
+  </div>
+</header>
+
+<nav class="filterbar" role="navigation" aria-label="价格筛选">
+  <button class="chip on" data-f="all">全部</button>
+  <button class="chip" data-f="down">▼ 降价</button>
+  <button class="chip" data-f="up">▲ 涨价/待涨</button>
+  <button class="chip" data-f="new">✦ 新上架</button>
+  <button class="chip" data-f="flat">— 持平</button>
+  <input type="search" class="search" id="search" placeholder="搜模型名…" aria-label="搜索模型">
+</nav>
+
+<main>
+  <section style="margin-top:0">
+    <h2>本周焦点</h2>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section>
+    <h2>全部模型价格表（主流平台收录）</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">服务商</th><th scope="col">模型</th>
+            <th scope="col">输入 $/1M</th><th scope="col">输出 $/1M</th>
+            <th scope="col">缓存命中</th><th scope="col">状态</th><th scope="col">备注</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+  <section>
+    <h2>渠道价差 · 同一个模型，换个平台差多少</h2>
+    <div class="diffgrid">
+      <div class="dcard t-official">
+        <h3>① 官方直连</h3>
+        <div class="pct">基准价</div>
+        <div class="desc">厂商自己的 API。价格是基准，稳定性最高，但国产模型要实名、海外模型要境外卡。适合量大、要稳定的场景。</div>
+      </div>
+      <div class="dcard t-agg">
+        <h3>② 国际聚合平台</h3>
+        <div class="pct">-25% ~ -75%</div>
+        <div class="desc">OpenRouter / DeepInfra / Together 这类，同一份开源权重多家托管互相压价，最低能到官方闲时价的四分之一。越新的开源模型降得越狠。</div>
+      </div>
+      <div class="dcard t-resale">
+        <h3>③ 代理 / 云厂商托管</h3>
+        <div class="pct">+50% ~ +300%</div>
+        <div class="desc">加价转售，代价换的是人民币支付、发票、国内网络。混元走代理商加 50%~100%，DeepSeek V4-Pro 在火山方舟托管比官方贵 3 倍。</div>
+      </div>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">模型</th><th scope="col">平台 A（便宜）</th><th scope="col">平台 B（贵）</th>
+            <th scope="col">输出价差</th><th scope="col">说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="m">Qwen3-235B-A22B</td>
+            <td>DeepInfra <b>$0.10</b></td><td>巴别塔 <b>¥40</b> ≈ $5.5</td>
+            <td><span class="badge b-up">相差 55 倍</span></td>
+            <td>同一个开源模型，托管渠道之间的极端价差案例</td>
+          </tr>
+          <tr>
+            <td class="m">DeepSeek V3.1</td>
+            <td>OpenRouter <b>$0.80</b></td><td>Replicate <b>$2.02</b></td>
+            <td><span class="badge b-up">相差 2.5 倍</span></td>
+            <td>中间还有 DeepInfra $1.00、302.AI $1.68</td>
+          </tr>
+          <tr>
+            <td class="m">DeepSeek V4-Flash</td>
+            <td>Open Inference <b>$0.16</b></td><td>官方闲时 <b>$0.60</b></td>
+            <td><span class="badge b-down">便宜 73%</span></td>
+            <td>第三方托管最低价只有官方低谷价的约四分之一</td>
+          </tr>
+          <tr>
+            <td class="m">Grok 4</td>
+            <td>OpenRouter <b>$15</b></td><td>Replicate <b>$36</b></td>
+            <td><span class="badge b-up">相差 2.4 倍</span></td>
+            <td>闭源模型被代理时价格由平台自己定</td>
+          </tr>
+          <tr>
+            <td class="m">GLM-5.3-Flash</td>
+            <td>GMICloud / NovitaAI / DeepInfra</td><td>智谱官方</td>
+            <td><span class="badge b-down">便宜约 50%</span></td>
+            <td>开源权重被多家托管后普遍打折</td>
+          </tr>
+          <tr>
+            <td class="m">混元 HY4 preview</td>
+            <td>TokenHub 直供 <b>¥5.8</b></td><td>代理商渠道</td>
+            <td><span class="badge b-up">加价 50%~100%</span></td>
+            <td>腾讯系模型代理加价幅度写在渠道条款里</td>
+          </tr>
+          <tr>
+            <td class="m">智谱 GLM Coding Plan</td>
+            <td>国内 <b>¥469</b> ≈ $67</td><td>海外 <b>$160</b></td>
+            <td><span class="badge b-down">国内便宜一半</span></td>
+            <td>反向价差：海外用户找人代购国内套餐</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tablewrap" style="margin-top:16px">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">主流中转站</th><th scope="col">类型</th><th scope="col">计价</th>
+            <th scope="col">支付</th><th scope="col">发票</th><th scope="col">特点</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="m">OpenRouter</td><td>国际聚合</td><td>USD</td><td>信用卡 / 加密货币</td><td>否</td><td>覆盖最广（400+ 模型），定价与官方持平，靠充值手续费（约 5%）盈利，有智能路由与自动故障转移</td></tr>
+          <tr><td class="m">DeepInfra</td><td>开源推理</td><td>USD</td><td>信用卡</td><td>否</td><td>开源模型常出现全场最低价，稳定性尚可</td></tr>
+          <tr><td class="m">Together / Fireworks</td><td>开源推理</td><td>USD</td><td>信用卡</td><td>否</td><td>Fireworks 独家代理部分量化版（如 Mistral Large 3 FP8）</td></tr>
+          <tr><td class="m">Groq</td><td>LPU 专用推理</td><td>USD</td><td>信用卡</td><td>否</td><td>速度约 500 TPS，独家渠道没有比价对象</td></tr>
+          <tr><td class="m">Replicate</td><td>开源托管</td><td>USD</td><td>信用卡</td><td>否</td><td>老牌，但部分模型报价明显偏高</td></tr>
+          <tr><td class="m">硅基流动（国内）</td><td>国内聚合</td><td>CNY</td><td>微信 / 支付宝</td><td>可开</td><td>30+ 模型，覆盖 DeepSeek/Qwen/GLM/Kimi/MiniMax，企业合规路线</td></tr>
+          <tr><td class="m">302.AI</td><td>国际聚合</td><td>USD</td><td>信用卡 / 加密货币</td><td>否</td><td>国产闭源模型的第二大代理渠道（豆包、Kimi、GLM 等）</td></tr>
+          <tr><td class="m">巴别塔</td><td>国内聚合</td><td>CNY</td><td>微信 / 支付宝</td><td>否</td><td>专攻国产小模型（Qwen3-8B ¥5 等），轻量推理场景</td></tr>
+          <tr><td class="m">火山方舟 / 云厂商托管</td><td>云厂商托管</td><td>CNY</td><td>对公 / 转账</td><td>可开</td><td>合规与发票齐全，但同一模型加价最狠（最高 +300%）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tips">
+      <b>选渠道时的四条避坑经验：</b>
+      <ol>
+        <li><b>低于官方成本价 70% 的要警惕</b>——行业最大客户折扣通常不低于五折，长期三折出售的多半有猫腻（降级模型、注水 Token、盗刷额度）。</li>
+        <li><b>闭源模型在代理渠道更贵</b>：Grok 4 在两家平台差 2.4 倍；<b>开源模型在聚合平台更便宜</b>：DeepSeek/GLM/Qwen 被多家托管压价，最狠便宜 75%。</li>
+        <li><b>数据多过一层手</b>：中转站能看到你全部请求内容。合同、客户信息、内部代码这类敏感内容慎走第三方。</li>
+        <li><b>提前备好第二条路</b>：部分模型「仅此一家代理」（如 Groq 的 Qwen3.6-27B），这家断了就没有备选；另有一些模型官方不开放代理（Hunyuan TurboS/T1、豆包 Seed 2.0），只能走官方 API。</li>
+      </ol>
+    </div>
+  </section>
+
+<footer>
+  数据来源：各厂商官方定价页、OpenRouter 模型列表，以及《大模型中转站 &amp; 聚合代理平台模型价格对比报告》等公开第三方比价资料，由 AI 定期核验整理 ·
+  价格随时可能变动，下单前以厂商官网与渠道当期报价为准 · 涨跌标注以上一期价格为基准 ·
+  DeepSeek/xAI 等标注为闲时/短上下文标准价 · 渠道价差为公开报告样本，不代表该平台全部模型
+</footer>
+
+<script>
+/* ═══ 每次更新只改这个数组 ═══
+   st: down=降价  up=涨价/待涨  new=新上架  flat=持平
+   focus: true 则进"本周焦点"卡片 */
+const PRICE_DATA = {
+  updatedAt: "2026-10-21",
+  items: [
+    /* OpenAI */
+    {p:"OpenAI",  m:"GPT-6 Astra",        in:"10.00", out:"50.00", cache:"$1.00", st:"flat", note:"最贵旗舰，普通人用不上"},
+    {p:"OpenAI",  m:"GPT-6.1 Sol",        in:"2.00",  out:"10.00", cache:"$0.10", st:"flat", focus:true, note:"中高质量任务首选，缓存读 $0.10"},
+    {p:"OpenAI",  m:"GPT-6 Sol",          in:"2.00",  out:"10.00", cache:"—",     st:"flat", note:"上一代同价在跑，可被 6.1 Sol 替代"},
+    {p:"OpenAI",  m:"GPT-6 Luna",         in:"0.10",  out:"0.50",  cache:"$0.01", st:"down", focus:true, note:"全场最低价，Batch 再半价；只适合轻活"},
+    {p:"OpenAI",  m:"GPT-5.6 Sol",        in:"4.00",  out:"20.00", cache:"$0.40", st:"up",   note:"促销到 11/21，之后涨 25%，别充值"},
+    {p:"OpenAI",  m:"GPT-5.6 Terra",      in:"2.00",  out:"12.00", cache:"—",     st:"up",   note:"11 月涨 25% 阵营"},
+    {p:"OpenAI",  m:"GPT-5.6 Luna",       in:"0.20",  out:"1.20",  cache:"—",     st:"up",   note:"已被 GPT-6 Luna 全面替代"},
+    {p:"OpenAI",  m:"GPT-5.3 Codex",      in:"1.75",  out:"14.00", cache:"—",     st:"flat", note:"代码专用旧款，输出偏贵"},
+    {p:"OpenAI",  m:"GPT-5.5",            in:"5.00",  out:"30.00", cache:"$0.50", st:"flat", note:"老旗舰，性价比已被 6 系取代"},
+    /* Anthropic */
+    {p:"Anthropic",m:"Claude Fable 5.1",  in:"10.00", out:"50.00", cache:"$0.25", st:"flat", note:"顶级旗舰，每任务成本极高"},
+    {p:"Anthropic",m:"Claude Opus 5.5",   in:"4.00",  out:"20.00", cache:"$0.20", st:"flat", note:"复杂推理/长任务才上它"},
+    {p:"Anthropic",m:"Claude Sonnet 5.5", in:"2.00",  out:"10.00", cache:"$0.10", st:"down", note:"缓存读 $0.20→$0.10；编程第一梯队"},
+    {p:"Anthropic",m:"Claude Haiku 5.5",  in:"0.10",  out:"0.50",  cache:"$0.01", st:"new",  focus:true, note:"10/8 新上架；≤100K tokens 低价，超限 5 倍"},
+    /* Google */
+    {p:"Google",  m:"Gemini 4 Argon",     in:"2.00",  out:"10.00", cache:"$0.10", st:"new",  focus:true, note:"新旗舰促销 $2/$10，12/1 起涨到 $4/$20"},
+    {p:"Google",  m:"Gemini 3.1 Pro",     in:"2.00",  out:"12.00", cache:"$0.20", st:"flat", note:"Preview，>200K 输入加价"},
+    {p:"Google",  m:"Gemini 3.8 Flash",   in:"0.75",  out:"3.75",  cache:"$0.075",st:"up",   note:"促销到 12/31，之后翻倍；多模态+1M 上下文"},
+    {p:"Google",  m:"Gemini 3.1 Flash-Lite",in:"0.25",out:"1.50",  cache:"$0.025",st:"flat", note:"Google 低价档"},
+    {p:"Google",  m:"Gemini 2.5 Flash-Lite",in:"0.10",out:"0.40",  cache:"$0.01", st:"flat", note:"输出最便宜的预案之一"},
+    /* DeepSeek（闲时价，高峰×2） */
+    {p:"DeepSeek",m:"V4.1-Flash",         in:"0.15",  out:"0.60",  cache:"$0.003",st:"down", focus:true, note:"10/17 静默升级同价变相降；缓存命中全场最低"},
+    {p:"DeepSeek",m:"V4-Pro",             in:"0.66",  out:"1.98",  cache:"$0.022",st:"flat", note:"硬核任务可用；V4.1 Pro 随时发布，别囤额度"},
+    /* xAI（200K 内标准价） */
+    {p:"xAI",     m:"Grok 4.7",           in:"2.00",  out:"6.00",  cache:"$0.50", st:"flat", note:"同档输出最便宜，500K 上下文"},
+    {p:"xAI",     m:"Grok 4.3 / 4.20",    in:"1.25",  out:"2.50",  cache:"$0.20", st:"flat", note:"1M 上下文，性价比档"},
+    {p:"xAI",     m:"Grok Build 0.1",     in:"1.00",  out:"2.00",  cache:"$0.20", st:"flat", note:"256K 上下文，轻量构建"},
+    /* 阿里 Qwen */
+    {p:"阿里",    m:"Qwen3.8-Max",        in:"2.00",  out:"6.00",  cache:"—",     st:"flat", note:"Apache 2.0 开源旗舰"},
+    {p:"阿里",    m:"Qwen3.8 Max Prime",  in:"4.00",  out:"12.00", cache:"—",     st:"flat", note:"速度税，能力没拉开差距"},
+    {p:"阿里",    m:"Qwen3.8 Flash",      in:"0.14",  out:"0.42",  cache:"—",     st:"flat", note:"国产低价档，输出便宜"},
+    /* 腾讯混元 */
+    {p:"腾讯",    m:"混元 HY3",           in:"0.147", out:"0.588", cache:"—",     st:"flat", focus:true, note:"OpenRouter $0.13/$0.53 更便宜；中文轻量首选"},
+    {p:"腾讯",    m:"混元 HY4 preview",   in:"0.834", out:"2.501", cache:"—",     st:"flat", note:"免费期 10/10 已结束；等正式版更好更便宜"},
+    /* 智谱 */
+    {p:"智谱",    m:"GLM-5.3",            in:"1.40",  out:"4.40",  cache:"—",     st:"flat", note:"旗舰档，权重开放有条件"},
+    {p:"智谱",    m:"GLM-5.3-Flash",      in:"0.15",  out:"0.50",  cache:"免费",  st:"flat", note:"缓存命中限时免费，低价守门员"},
+    {p:"智谱",    m:"GLM-4.7-Flash",      in:"0",     out:"0",     cache:"—",     st:"flat", note:"永久免费 API（open.bigmodel.cn）"},
+    /* 月之暗面 / MiniMax / 小米 */
+    {p:"月之暗面",m:"Kimi K3",            in:"3.00",  out:"15.00", cache:"—",     st:"flat", note:"国产最贵一档，性价比低"},
+    {p:"MiniMax", m:"M3",                 in:"0.30",  out:"1.20",  cache:"—",     st:"flat", note:"512K 输入，社区许可证"},
+    {p:"小米",    m:"MiMo-V2.6-Pro",      in:"0.435", out:"0.87",  cache:"—",     st:"flat", note:"万亿参数 MIT 开源，接近 GPT-6 Sol 价格 1/10"},
+    /* Meta */
+    {p:"Meta",    m:"Muse Spark 1.3",     in:"0.10",  out:"0.20",  cache:"—",     st:"flat", note:"实验档，数据可能用于训练"},
+    /* Mistral */
+    {p:"Mistral", m:"Large 3",            in:"0.50",  out:"1.50",  cache:"—",     st:"flat", note:"Apache 2.0，欧盟数据驻留友好"},
+    {p:"Mistral", m:"Small 4",            in:"0.15",  out:"0.60",  cache:"—",     st:"flat", note:"开源轻量，欧洲合规之选"},
+    {p:"Mistral", m:"Medium 3.5",         in:"1.50",  out:"7.50",  cache:"—",     st:"flat", note:"中间档，存在感一般"},
+    {p:"Mistral", m:"Codestral 25.08",    in:"0.30",  out:"0.90",  cache:"—",     st:"flat", note:"代码专用，128K 上下文"}
+  ]
+};
+const ST = {
+  down:{cls:"b-down",txt:"▼ 降价"}, up:{cls:"b-up",txt:"▲ 涨价/待涨"},
+  new:{cls:"b-new",txt:"✦ 新上架"}, flat:{cls:"b-flat",txt:"— 持平"}
+};
+const money = v => (v==="0" ? "免费" : "$"+v);
+/* 焦点卡片 */
+const grid = document.getElementById("grid");
+PRICE_DATA.items.filter(d=>d.focus).forEach((d,i)=>{
+  const s = ST[d.st];
+  const card = document.createElement("article");
+  card.className = "card" + (d.st==="new"?" is-new":"");
+  card.style.animationDelay = (i*60)+"ms";
+  card.innerHTML = `
+    <div class="card-top"><span class="provider">${d.p}</span><span class="badge ${s.cls}">${s.txt}</span></div>
+    <div class="model">${d.m}</div>
+    <div class="prices">
+      <div class="price"><span>输入 $/1M</span><b>${money(d.in)}</b></div>
+      <div class="price"><span>输出 $/1M</span><b>${money(d.out)}</b></div>
+    </div>
+    <div class="cache">缓存命中：${d.cache}</div>
+    <div class="note">💬 ${d.note}</div>`;
+  grid.appendChild(card);
+});
+/* 全量表 */
+const tbody = document.getElementById("tbody");
+tbody.innerHTML = PRICE_DATA.items.map(d=>{
+  const s = ST[d.st];
+  return `<tr data-st="${d.st}" data-key="${(d.p+d.m).toLowerCase()}">
+    <td>${d.p}</td><td class="m">${d.m}</td>
+    <td class="num ${d.in!=="0"&&parseFloat(d.in)<=0.15?"cheap":""}">${money(d.in)}</td>
+    <td class="num">${money(d.out)}</td>
+    <td>${d.cache}</td>
+    <td><span class="badge ${s.cls}">${s.txt}</span></td>
+    <td>${d.note}</td></tr>`;
+}).join("");
+/* 统计 */
+const cnt = st => PRICE_DATA.items.filter(x=>x.st===st).length;
+document.getElementById("updatedAt").textContent =
+  PRICE_DATA.updatedAt.replace(/^(\d+)-(\d+)$/,"$1 月 $2 日");
+document.getElementById("cntDown").textContent = cnt("down");
+document.getElementById("cntUp").textContent = cnt("up");
+document.getElementById("cntNew").textContent = cnt("new");
+document.getElementById("cntAll").textContent = PRICE_DATA.items.length;
+/* 状态筛选 + 搜索（同时作用于表格） */
+let curFilter = "all", curKey = "";
+const rows = () => tbody.querySelectorAll("tr");
+function applyFilter(){
+  rows().forEach(tr=>{
+    const okSt = curFilter==="all" || tr.dataset.st===curFilter;
+    const okKey = !curKey || tr.dataset.key.includes(curKey);
+    tr.classList.toggle("hidden", !(okSt && okKey));
+  });
+}
+document.querySelectorAll(".chip").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on");
+    curFilter = btn.dataset.f; applyFilter();
+  });
+});
+document.getElementById("search").addEventListener("input",e=>{
+  curKey = e.target.value.trim().toLowerCase(); applyFilter();
+});
+</script>
+</body>
+</html>
